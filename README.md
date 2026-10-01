@@ -11,6 +11,11 @@ Beispiel-Sitzung über HTTP aus. Der Server hat außerdem ein Socket.IO-Gateway
 mit serverseitig verwalteten Sitzungsräumen; Lobby, Benutzeroberflächen und die
 Authentifizierung folgen schrittweise gemäß [TODO.md](TODO.md).
 
+Für den direkten Start des Servers und die Verbindung eines Geräts im lokalen
+Netzwerk steht eine kompakte, standgenaue [QUICKSTART.md](QUICKSTART.md) bereit.
+Unter Windows kann dafür auch [quickstart.bat](quickstart.bat) per Doppelklick
+gestartet werden.
+
 ## Voraussetzungen
 
 - Node.js 22.22.0 oder neuer
