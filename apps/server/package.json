@@ -1,0 +1,16 @@
+{
+  "name": "@pnp-engine/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "pnpm run build && vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@pnp-engine/shared": "workspace:*",
+    "fastify": "^5.12.5"
+  }
+}

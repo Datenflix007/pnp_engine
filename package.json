@@ -1,0 +1,32 @@
+{
+  "name": "pnp-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lokale Spielleitungs-Engine für Pen-and-Paper- und Party-Sessions.",
+  "packageManager": "pnpm@10.28.1",
+  "engines": {
+    "node": ">=22.22.0",
+    "pnpm": ">=10.28.1"
+  },
+  "scripts": {
+    "dev": "pnpm --recursive --parallel --if-present run dev",
+    "build": "pnpm --recursive --if-present run build",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "typecheck:packages": "pnpm --recursive --if-present run typecheck",
+    "test": "pnpm run build && vitest run --passWithNoTests",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run build && pnpm run typecheck && pnpm run typecheck:packages && pnpm run test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.3",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

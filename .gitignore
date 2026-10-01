@@ -1,0 +1,34 @@
+TODO.md
+
+# Installierte Abhängigkeiten und generierte Prüfausgaben.
+node_modules/
+dist/
+coverage/
+.vite/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Lokale Laufzeitdaten: pro Installation und Sitzung privat.
+/data/
+/sessions/
+/assets/
+/uploads/
+/backups/
+
+# SQLite-Datenbanken und ihre Journaldateien dürfen niemals versioniert werden.
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+
+# Lokale Exporte und Diagnoseausgaben können private Sitzungsdaten enthalten.
+*.rpgsession
+*.log
+
+# Geheimnisse bleiben lokal. Eine ausdrücklich bereinigte Vorlage darf versioniert werden.
+.env
+.env.*
+!.env.example
