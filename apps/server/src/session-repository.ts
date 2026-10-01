@@ -1,0 +1,217 @@
+import type Database from 'better-sqlite3';
+
+import type { LobbyState, PlayerConnectionState, PlayerId, SessionId } from '@pnp-engine/shared';
+
+export interface StoredSession {
+  readonly id: SessionId;
+  readonly name: string;
+  readonly lobbyState: LobbyState;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface StoredSessionCode {
+  readonly code: string;
+  readonly sessionId: SessionId;
+  readonly active: boolean;
+  readonly createdAt: string;
+}
+
+export interface StoredPlayer {
+  readonly id: PlayerId;
+  readonly sessionId: SessionId;
+  readonly displayName: string;
+  readonly connectionState: PlayerConnectionState;
+  readonly characterId?: string;
+  readonly roleId?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface CreateSessionInput {
+  readonly id: SessionId;
+  readonly name: string;
+  readonly joinCode: string;
+  readonly lobbyState: LobbyState;
+  readonly createdAt: string;
+}
+
+export interface CreatePlayerInput {
+  readonly id: PlayerId;
+  readonly sessionId: SessionId;
+  readonly displayName: string;
+  readonly connectionState: PlayerConnectionState;
+  readonly createdAt: string;
+}
+
+interface SessionRow {
+  readonly id: string;
+  readonly name: string;
+  readonly lobby_state: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+interface SessionCodeRow {
+  readonly code: string;
+  readonly session_id: string;
+  readonly active: number;
+  readonly created_at: string;
+}
+
+interface PlayerRow {
+  readonly id: string;
+  readonly session_id: string;
+  readonly display_name: string;
+  readonly connection_state: string;
+  readonly character_id: string | null;
+  readonly role_id: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export class SqliteSessionRepository {
+  public constructor(private readonly database: Database.Database) {}
+
+  public createSession(input: CreateSessionInput): StoredSession {
+    const create = this.database.transaction(() => {
+      this.database
+        .prepare(
+          `
+            INSERT INTO sessions (id, name, lobby_state, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+          `,
+        )
+        .run(input.id, input.name, input.lobbyState, input.createdAt, input.createdAt);
+      this.database
+        .prepare(
+          `
+            INSERT INTO session_codes (code, session_id, active, created_at)
+            VALUES (?, ?, 1, ?)
+          `,
+        )
+        .run(input.joinCode, input.id, input.createdAt);
+    });
+
+    create();
+
+    return {
+      id: input.id,
+      name: input.name,
+      lobbyState: input.lobbyState,
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+    };
+  }
+
+  public findSessionById(sessionId: SessionId): StoredSession | undefined {
+    const row = this.database
+      .prepare('SELECT id, name, lobby_state, created_at, updated_at FROM sessions WHERE id = ?')
+      .get(sessionId) as SessionRow | undefined;
+
+    return row === undefined ? undefined : toStoredSession(row);
+  }
+
+  public findSessionByJoinCode(joinCode: string): StoredSession | undefined {
+    const row = this.database
+      .prepare(
+        `
+          SELECT sessions.id, sessions.name, sessions.lobby_state, sessions.created_at, sessions.updated_at
+          FROM sessions
+          INNER JOIN session_codes ON session_codes.session_id = sessions.id
+          WHERE session_codes.code = ? AND session_codes.active = 1
+        `,
+      )
+      .get(joinCode) as SessionRow | undefined;
+
+    return row === undefined ? undefined : toStoredSession(row);
+  }
+
+  public findActiveSessionCode(sessionId: SessionId): StoredSessionCode | undefined {
+    const row = this.database
+      .prepare(
+        `
+          SELECT code, session_id, active, created_at
+          FROM session_codes
+          WHERE session_id = ? AND active = 1
+        `,
+      )
+      .get(sessionId) as SessionCodeRow | undefined;
+
+    return row === undefined ? undefined : toStoredSessionCode(row);
+  }
+
+  public createPlayer(input: CreatePlayerInput): StoredPlayer {
+    this.database
+      .prepare(
+        `
+          INSERT INTO players (id, session_id, display_name, connection_state, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        input.id,
+        input.sessionId,
+        input.displayName,
+        input.connectionState,
+        input.createdAt,
+        input.createdAt,
+      );
+
+    return {
+      id: input.id,
+      sessionId: input.sessionId,
+      displayName: input.displayName,
+      connectionState: input.connectionState,
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+    };
+  }
+
+  public listPlayers(sessionId: SessionId): readonly StoredPlayer[] {
+    const rows = this.database
+      .prepare(
+        `
+          SELECT id, session_id, display_name, connection_state, character_id, role_id, created_at, updated_at
+          FROM players
+          WHERE session_id = ?
+          ORDER BY created_at ASC, id ASC
+        `,
+      )
+      .all(sessionId) as readonly PlayerRow[];
+
+    return rows.map(toStoredPlayer);
+  }
+}
+
+function toStoredSession(row: SessionRow): StoredSession {
+  return {
+    id: row.id,
+    name: row.name,
+    lobbyState: row.lobby_state as LobbyState,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toStoredSessionCode(row: SessionCodeRow): StoredSessionCode {
+  return {
+    code: row.code,
+    sessionId: row.session_id,
+    active: row.active === 1,
+    createdAt: row.created_at,
+  };
+}
+
+function toStoredPlayer(row: PlayerRow): StoredPlayer {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    displayName: row.display_name,
+    connectionState: row.connection_state as PlayerConnectionState,
+    ...(row.character_id === null ? {} : { characterId: row.character_id }),
+    ...(row.role_id === null ? {} : { roleId: row.role_id }),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
