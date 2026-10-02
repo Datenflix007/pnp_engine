@@ -13,6 +13,8 @@ import {
 } from './http.js';
 import type { SqliteSessionRepository, StoredSession } from './session-repository.js';
 import { attachRealtimeGateway } from './realtime.js';
+import type { SessionStateManager } from './session-state-manager.js';
+import { createSocketAuthenticator } from './socket-authentication.js';
 
 export const HELLO_SESSION: HelloSession = {
   sessionId: 'ravenhill',
@@ -24,8 +26,10 @@ export const HELLO_SESSION: HelloSession = {
 export interface CreateServerOptions {
   readonly sessionRepository?: Pick<
     SqliteSessionRepository,
-    'findSessionById' | 'findSessionByJoinCode' | 'listPlayers'
+    'findPlayerByDeviceTokenHash' | 'findSessionById' | 'findSessionByJoinCode' | 'listPlayers'
   >;
+  readonly gameMasterSecret?: string;
+  readonly sessionStateManager?: SessionStateManager;
 }
 
 interface SessionIdParams {
@@ -41,7 +45,24 @@ const JOIN_CODE_PATTERN = /^[A-Z0-9]{4,16}$/;
 
 export function createServer(options: CreateServerOptions = {}) {
   const server = Fastify({ logger: false });
-  attachRealtimeGateway(server);
+  const authenticator =
+    options.sessionRepository === undefined
+      ? undefined
+      : createSocketAuthenticator({
+          sessionRepository: options.sessionRepository,
+          ...(options.gameMasterSecret === undefined
+            ? {}
+            : { gameMasterSecret: options.gameMasterSecret }),
+        });
+  attachRealtimeGateway(server, {
+    ...(authenticator === undefined ? {} : { authenticator }),
+    ...(options.sessionStateManager === undefined
+      ? {}
+      : { sessionStateManager: options.sessionStateManager }),
+  });
+  if (options.sessionStateManager !== undefined) {
+    server.decorate('sessionStateManager', options.sessionStateManager);
+  }
 
   server.get<{ Reply: HealthResponse }>('/health', async () => HEALTH_RESPONSE);
 

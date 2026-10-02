@@ -27,10 +27,14 @@ describe('Socket.IO gateway', () => {
 
       expect(server.realtimeGateway.connections.getConnectionCount('ravenhill')).toBe(0);
 
-      server.realtimeGateway.assignSocketToSession(socket, 'ravenhill');
+      server.realtimeGateway.assignSocketToSession(socket, {
+        sessionId: 'ravenhill',
+        role: 'PRESENTATION',
+      });
 
       expect(socket.rooms).toContain(getSessionRoomName('ravenhill'));
       expect(server.realtimeGateway.connections.getSessionId(socket.id)).toBe('ravenhill');
+      expect(server.realtimeGateway.connections.canWrite(socket.id)).toBe(false);
       expect(server.realtimeGateway.connections.getConnectionCount('ravenhill')).toBe(1);
 
       const disconnect = once(socket, 'disconnect');

@@ -40,6 +40,7 @@ describe('SqliteSessionRepository', () => {
         displayName: 'Anna',
         connectionState: 'OFFLINE',
         createdAt,
+        deviceTokenHash: 'device-token-hash-anna',
       });
       repository.createPlayer({
         id: 'player-ben',
@@ -49,13 +50,22 @@ describe('SqliteSessionRepository', () => {
         createdAt: '2026-10-01T20:01:00.000Z',
       });
 
-      expect(repository.findSessionById('ravenhill')).toEqual(session);
-      expect(repository.findSessionByJoinCode('7HTK9Q')).toEqual(session);
+      const persistedSession = {
+        ...session,
+        updatedAt: '2026-10-01T20:01:00.000Z',
+      };
+
+      expect(repository.findSessionById('ravenhill')).toEqual(persistedSession);
+      expect(repository.findSessionByJoinCode('7HTK9Q')).toEqual(persistedSession);
       expect(repository.findActiveSessionCode('ravenhill')).toEqual({
         code: '7HTK9Q',
         sessionId: 'ravenhill',
         active: true,
         createdAt,
+      });
+      expect(repository.findPlayerByDeviceTokenHash('device-token-hash-anna')).toMatchObject({
+        id: 'player-anna',
+        sessionId: 'ravenhill',
       });
       expect(repository.listPlayers('ravenhill')).toEqual([
         {

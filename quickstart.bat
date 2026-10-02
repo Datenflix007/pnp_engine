@@ -24,6 +24,13 @@ if errorlevel 1 goto :failed
 if not defined PNP_ENGINE_HOST set "PNP_ENGINE_HOST=0.0.0.0"
 if not defined PNP_ENGINE_PORT set "PNP_ENGINE_PORT=3000"
 
+if defined PNP_ENGINE_GAME_MASTER_SECRET goto :game_master_secret_ready
+echo Hinweis: PNP_ENGINE_GAME_MASTER_SECRET ist nicht gesetzt.
+echo Game-Master-Socket-Verbindungen bleiben dadurch deaktiviert.
+echo.
+
+:game_master_secret_ready
+
 echo.
 echo Baue das Projekt ...
 call corepack pnpm run build

@@ -70,6 +70,18 @@ const migrations: readonly Migration[] = [
       `);
     },
   },
+  {
+    id: '003_player_device_tokens',
+    apply: (database) => {
+      database.exec(`
+        ALTER TABLE players ADD COLUMN device_token_hash TEXT;
+
+        CREATE UNIQUE INDEX players_by_device_token_hash
+          ON players(device_token_hash)
+          WHERE device_token_hash IS NOT NULL;
+      `);
+    },
+  },
 ];
 
 /** Creates the local data directory, opens SQLite and applies pending migrations. */

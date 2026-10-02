@@ -35,6 +35,21 @@ Der Start legt bei Bedarf `data/pnp-engine.sqlite` an, führt die Migrationen au
 und erzeugt die leere Demo-Sitzung „Das Geheimnis von Ravenhill“ genau einmal.
 Beenden mit `Ctrl+C`.
 
+Soll die spätere Game-Master-Oberfläche eine Socket-Verbindung aufbauen, muss
+vor dem Start zusätzlich ein eigenes lokales Geheimnis gesetzt werden. Es darf
+nicht mit dem Join-Code geteilt oder in eine URL geschrieben werden:
+
+```powershell
+$env:PNP_ENGINE_GAME_MASTER_SECRET = 'ein-eigenes-langes-lokales-geheimnis'
+pnpm --filter @pnp-engine/server run start
+```
+
+Bei einem Doppelklick auf `quickstart.bat` kann die Umgebungsvariable dauerhaft
+in Windows gesetzt oder die Batch-Datei aus einer bereits entsprechend
+konfigurierten Eingabeaufforderung gestartet werden. Ohne Geheimnis bleibt nur
+der Game-Master-Zugang deaktiviert; Server, Spieler- und Präsentationszugang
+starten weiterhin.
+
 ## 2. Server vom selben PC prüfen
 
 In einem zweiten PowerShell-Fenster:
@@ -77,10 +92,15 @@ Internet-Portfreigabe einrichten.
 ## 4. Was der Client derzeit kann und noch nicht kann
 
 Socket.IO ist mit dem Server verbunden und verwaltet Sitzungsräume auf dem
-Server. Noch gibt es aber absichtlich keinen öffentlichen Socket-Befehl zum
-Beitreten: Der nächste Schritt ergänzt die Authentifizierung für Spieler,
-Spielleitung und Präsentation. Auch die geplante URL `/join/RAVEN01` und die
-grafische Spieler-Lobby existieren noch nicht.
+Server. Die Handshake-Rollen sind bereits getrennt: Spieler benötigen einen
+aktiven Join-Code, Game Master das separate Prozessgeheimnis und Presentation
+meldet sich nur für eine vorhandene Sitzung an. Presentation-Verbindungen sind
+serverseitig schreibgeschützt. Der technische Protokollbefehl `PLAYER_JOIN`
+existiert bereits und liefert dem beigetretenen Gerät einen lokalen,
+nicht-protokollierten Reconnect-Nachweis. Eine Browseroberfläche, die diesen
+Nachweis im lokalen Gerätespeicher verwaltet, existiert noch nicht. Auch die
+geplante URL `/join/RAVEN01` und die grafische Spieler-Lobby folgen erst mit dem
+Player-Client.
 
 Bis dahin ist der verlässliche technische Client-Check der Server-Test:
 

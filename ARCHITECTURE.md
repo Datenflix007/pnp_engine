@@ -68,6 +68,11 @@ Der aktive Session-State enthält mindestens:
 SQLite sichert Sitzungsdaten und relevante Änderungen. Der
 `SessionStateManager` hält den laufenden, synchronisierten Zustand und ist der
 einzige Schreibpfad für Spiellogik. Repositories schreiben nicht an ihm vorbei.
+Er lädt die vorhandenen Sitzungs- und Spielerdaten in einen privaten
+Laufzeitzustand, verarbeitet ausschließlich typisierte Kommandos und erzeugt
+erst danach die rollenabhängigen Snapshots. Ein Kommando wird zuerst persistiert
+und anschließend in den Cache übernommen; direkte Mutation von Socket- oder
+HTTP-Daten ist nicht vorgesehen.
 
 ## Datenprojektionen und Geheimhaltung
 
@@ -125,6 +130,16 @@ Socket.IO-Raum aufgenommen.
   Serverlogs ausgegeben.
 - Die Presentation hat keinen Schreibzugriff und kann nur öffentliche Daten
   abonnieren.
+
+Der Socket.IO-Handshake ist ebenfalls strikt nach Rolle getrennt. Ein Spieler
+sendet ausschließlich `{ role: 'PLAYER', joinCode }`; der Server akzeptiert nur
+einen syntaktisch begrenzten, aktiven Code. Ein Game Master sendet
+`{ role: 'GAME_MASTER', sessionId, gameMasterSecret }`; das Geheimnis stammt
+allein aus `PNP_ENGINE_GAME_MASTER_SECRET`, bleibt im Prozessspeicher und wird
+weder persistiert noch in Antworten, URLs oder Logs übernommen. Die
+Präsentation sendet `{ role: 'PRESENTATION', sessionId }`, erhält nur den
+öffentlichen Zugang und ist bei jedem künftigen Schreibkommando serverseitig
+ausgeschlossen.
 
 Die lokale Nutzung im privaten LAN erlaubt ein leichtgewichtiges Modell, ersetzt
 aber keine Serverprüfung jeder Aktion.

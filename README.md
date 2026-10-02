@@ -100,12 +100,13 @@ das folgt erst mit dem autorisierten Game-Master-Zugang.
 
 Die Konfiguration erfolgt pro Prozess über Umgebungsvariablen:
 
-| Variable                   | Standard            | Zweck                                                |
-| -------------------------- | ------------------- | ---------------------------------------------------- |
-| `PNP_ENGINE_HOST`          | `0.0.0.0`           | Bindeadresse des Servers                             |
-| `PNP_ENGINE_PORT`          | `3000`              | TCP-Port von 1 bis 65535                             |
-| `PNP_ENGINE_DATA_DIR`      | `data`              | Datenverzeichnis relativ zum Repository oder absolut |
-| `PNP_ENGINE_DATABASE_FILE` | `pnp-engine.sqlite` | Dateiname der künftigen SQLite-Datenbank             |
+| Variable                        | Standard            | Zweck                                                        |
+| ------------------------------- | ------------------- | ------------------------------------------------------------ |
+| `PNP_ENGINE_HOST`               | `0.0.0.0`           | Bindeadresse des Servers                                     |
+| `PNP_ENGINE_PORT`               | `3000`              | TCP-Port von 1 bis 65535                                     |
+| `PNP_ENGINE_DATA_DIR`           | `data`              | Datenverzeichnis relativ zum Repository oder absolut         |
+| `PNP_ENGINE_DATABASE_FILE`      | `pnp-engine.sqlite` | Dateiname der künftigen SQLite-Datenbank                     |
+| `PNP_ENGINE_GAME_MASTER_SECRET` | keiner              | Geheimnis ausschließlich für Game-Master-Socket-Verbindungen |
 
 Zum lokalen, nicht im LAN erreichbaren Start etwa:
 
@@ -114,6 +115,19 @@ $env:PNP_ENGINE_HOST = '127.0.0.1'
 $env:PNP_ENGINE_PORT = '3100'
 pnpm --filter @pnp-engine/server run start
 ```
+
+Für künftige Game-Master-Verbindungen wird vor dem Serverstart ein separates,
+nicht mit Spielern geteiltes Geheimnis gesetzt. Es bleibt ausschließlich im
+Prozessspeicher und wird weder in SQLite noch in HTTP- oder Socket-Antworten
+ausgegeben:
+
+```powershell
+$env:PNP_ENGINE_GAME_MASTER_SECRET = 'ein-eigenes-langes-lokales-geheimnis'
+pnpm --filter @pnp-engine/server run start
+```
+
+Ohne diese Variable starten Server, Spieler- und Präsentationszugang weiterhin;
+Game-Master-Socket-Verbindungen werden dann bewusst abgewiesen.
 
 `pnpm run dev` ist bereits als Workspace-Skript vorhanden, startet aber bis zu
 den folgenden Client-Schritten noch keine Entwicklungsoberfläche.

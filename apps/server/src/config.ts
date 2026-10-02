@@ -12,6 +12,8 @@ export interface ServerConfig {
   readonly port: number;
   readonly dataDirectory: string;
   readonly databasePath: string;
+  /** Kept only in process memory and never written to the local database. */
+  readonly gameMasterSecret?: string;
 }
 
 /**
@@ -36,6 +38,9 @@ export function loadServerConfig(
     port,
     dataDirectory,
     databasePath: resolve(dataDirectory, databaseFile),
+    ...(environment.PNP_ENGINE_GAME_MASTER_SECRET === undefined
+      ? {}
+      : { gameMasterSecret: readText(environment, 'PNP_ENGINE_GAME_MASTER_SECRET', '') }),
   };
 }
 

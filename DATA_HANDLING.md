@@ -57,7 +57,9 @@ entfernt. Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md#datenprojektionen-
 
 Browser speichern höchstens einen lokalen, zufälligen Reconnect-Nachweis. Dieser
 wird nicht in URLs, Serverlogs oder Git geschrieben. Bei Verlust des Geräts kann
-der Game Master den betreffenden Spielerzugang sperren oder neu zuweisen.
+der Game Master den betreffenden Spielerzugang sperren oder neu zuweisen. Der
+Server speichert für einen solchen Nachweis ausschließlich einen SHA-256-Hash in
+der bereits ignorierten lokalen SQLite-Datei.
 
 ## Prüfschritt
 

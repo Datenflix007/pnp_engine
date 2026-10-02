@@ -24,6 +24,7 @@ describe('server configuration', () => {
           PNP_ENGINE_PORT: '3100',
           PNP_ENGINE_DATA_DIR: 'runtime-data',
           PNP_ENGINE_DATABASE_FILE: 'ravenhill.sqlite',
+          PNP_ENGINE_GAME_MASTER_SECRET: 'kept-in-process-memory',
         },
         projectRoot,
       ),
@@ -32,6 +33,7 @@ describe('server configuration', () => {
       port: 3100,
       dataDirectory: resolve(projectRoot, 'runtime-data'),
       databasePath: resolve(projectRoot, 'runtime-data', 'ravenhill.sqlite'),
+      gameMasterSecret: 'kept-in-process-memory',
     });
   });
 

@@ -42,6 +42,7 @@ export interface CreatePlayerInput {
   readonly displayName: string;
   readonly connectionState: PlayerConnectionState;
   readonly createdAt: string;
+  readonly deviceTokenHash?: string;
 }
 
 interface SessionRow {
@@ -141,22 +142,43 @@ export class SqliteSessionRepository {
     return row === undefined ? undefined : toStoredSessionCode(row);
   }
 
+  public updateLobbyState(
+    sessionId: SessionId,
+    lobbyState: LobbyState,
+    updatedAt: string,
+  ): StoredSession | undefined {
+    const result = this.database
+      .prepare('UPDATE sessions SET lobby_state = ?, updated_at = ? WHERE id = ?')
+      .run(lobbyState, updatedAt, sessionId);
+
+    return result.changes === 0 ? undefined : this.findSessionById(sessionId);
+  }
+
   public createPlayer(input: CreatePlayerInput): StoredPlayer {
-    this.database
-      .prepare(
-        `
-          INSERT INTO players (id, session_id, display_name, connection_state, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `,
-      )
-      .run(
-        input.id,
-        input.sessionId,
-        input.displayName,
-        input.connectionState,
-        input.createdAt,
-        input.createdAt,
-      );
+    const create = this.database.transaction(() => {
+      this.database
+        .prepare(
+          `
+            INSERT INTO players (
+              id, session_id, display_name, connection_state, created_at, updated_at, device_token_hash
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          input.id,
+          input.sessionId,
+          input.displayName,
+          input.connectionState,
+          input.createdAt,
+          input.createdAt,
+          input.deviceTokenHash ?? null,
+        );
+      this.database
+        .prepare('UPDATE sessions SET updated_at = ? WHERE id = ?')
+        .run(input.createdAt, input.sessionId);
+    });
+
+    create();
 
     return {
       id: input.id,
@@ -181,6 +203,58 @@ export class SqliteSessionRepository {
       .all(sessionId) as readonly PlayerRow[];
 
     return rows.map(toStoredPlayer);
+  }
+
+  public findPlayerByDeviceTokenHash(deviceTokenHash: string): StoredPlayer | undefined {
+    const row = this.database
+      .prepare(
+        `
+          SELECT id, session_id, display_name, connection_state, character_id, role_id, created_at, updated_at
+          FROM players
+          WHERE device_token_hash = ?
+        `,
+      )
+      .get(deviceTokenHash) as PlayerRow | undefined;
+
+    return row === undefined ? undefined : toStoredPlayer(row);
+  }
+
+  public updatePlayerConnectionState(
+    sessionId: SessionId,
+    playerId: PlayerId,
+    connectionState: PlayerConnectionState,
+    updatedAt: string,
+  ): StoredPlayer | undefined {
+    const update = this.database.transaction(() => {
+      const result = this.database
+        .prepare(
+          `
+            UPDATE players
+            SET connection_state = ?, updated_at = ?
+            WHERE id = ? AND session_id = ?
+          `,
+        )
+        .run(connectionState, updatedAt, playerId, sessionId);
+      if (result.changes === 0) {
+        return undefined;
+      }
+
+      this.database
+        .prepare('UPDATE sessions SET updated_at = ? WHERE id = ?')
+        .run(updatedAt, sessionId);
+      return this.database
+        .prepare(
+          `
+            SELECT id, session_id, display_name, connection_state, character_id, role_id, created_at, updated_at
+            FROM players
+            WHERE id = ? AND session_id = ?
+          `,
+        )
+        .get(playerId, sessionId) as PlayerRow;
+    });
+    const row = update();
+
+    return row === undefined ? undefined : toStoredPlayer(row);
   }
 }
 
