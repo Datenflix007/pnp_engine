@@ -1,0 +1,3 @@
+ALTER TABLE roles ADD COLUMN description TEXT;
+ALTER TABLE roles ADD COLUMN target TEXT;
+ALTER TABLE roles ADD COLUMN hints TEXT;
