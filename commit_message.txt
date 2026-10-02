@@ -1,1 +1,0 @@
-Mark TODO items 6.03-6.07 as completed: implemented server-side URL formation, QR code generation, dashboard mode control, state validation, and end-to-end test.
