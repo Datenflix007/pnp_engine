@@ -26,7 +26,12 @@ describe('SQLite database', () => {
     try {
       expect(existsSync(config.databasePath)).toBe(true);
       expect(handle.migration).toEqual({
-        applied: ['001_bootstrap', '002_sessions_players_and_codes', '003_player_device_tokens'],
+        applied: [
+          '001_bootstrap',
+          '002_sessions_players_and_codes',
+          '003_player_device_tokens',
+          '004_player_admission_state',
+        ],
         alreadyApplied: [],
       });
       expect(
@@ -41,12 +46,18 @@ describe('SQLite database', () => {
           .prepare("SELECT name FROM pragma_table_info('players') WHERE name = 'device_token_hash'")
           .get(),
       ).toEqual({ name: 'device_token_hash' });
+      expect(
+        handle.database
+          .prepare("SELECT name FROM pragma_table_info('players') WHERE name = 'admission_state'")
+          .get(),
+      ).toEqual({ name: 'admission_state' });
       expect(migrateDatabase(handle.database)).toEqual({
         applied: [],
         alreadyApplied: [
           '001_bootstrap',
           '002_sessions_players_and_codes',
           '003_player_device_tokens',
+          '004_player_admission_state',
         ],
       });
     } finally {

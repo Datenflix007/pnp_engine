@@ -148,6 +148,7 @@ describe('SessionStateManager', () => {
           id: 'player-anna',
           displayName: 'Anna Beispiel',
           connectionState: 'CONNECTED',
+          admissionState: 'WAITING',
         },
         deviceToken: 'a'.repeat(43),
       });

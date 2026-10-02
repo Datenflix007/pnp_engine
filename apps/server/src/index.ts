@@ -3,6 +3,7 @@ import { loadServerConfig } from './config.js';
 import { initializeDatabase } from './database.js';
 import { seedOfficialDemoSession } from './demo-session.js';
 import { detectLocalIpv4 } from './network.js';
+import { consoleRealtimeAuditLogger } from './realtime.js';
 import { SqliteSessionRepository } from './session-repository.js';
 import { SessionStateManager } from './session-state-manager.js';
 
@@ -15,6 +16,7 @@ const sessionStateManager = new SessionStateManager({ repository });
 const server = createServer({
   sessionRepository: repository,
   sessionStateManager,
+  auditLogger: consoleRealtimeAuditLogger,
   ...(config.gameMasterSecret === undefined ? {} : { gameMasterSecret: config.gameMasterSecret }),
 });
 

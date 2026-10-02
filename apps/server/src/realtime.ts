@@ -7,10 +7,14 @@ import {
   PROTOCOL_VERSION,
   SOCKET_COMMAND_EVENT,
   SOCKET_EVENT,
+  type CommandAcceptedEvent,
+  type CommandRejectedEvent,
+  type CommandRejectionCode,
   type PlayerJoinAcceptedEvent,
   type PlayerJoinCommand,
   type PlayerJoinedEvent,
   type PlayerReconnectedEvent,
+  type SessionSnapshotEvent,
 } from '@pnp-engine/protocol';
 
 import {
@@ -94,9 +98,49 @@ export interface RealtimeGateway {
   assignSocketToSession(socket: Socket, connection: AuthenticatedSocketConnection): void;
 }
 
+export type RealtimeAuditEvent =
+  | {
+      readonly event: 'SOCKET_AUTHENTICATION_REJECTED';
+      readonly code: SocketAuthenticationError['code'] | 'INTERNAL_ERROR';
+    }
+  | {
+      readonly event: 'SOCKET_CONNECTED' | 'SOCKET_DISCONNECTED';
+      readonly sessionId: SessionId;
+      readonly role: AuthenticatedSocketConnection['role'];
+    }
+  | {
+      readonly event: 'PLAYER_JOINED' | 'PLAYER_RECONNECTED';
+      readonly sessionId: SessionId;
+    }
+  | {
+      readonly event: 'COMMAND_ACCEPTED' | 'COMMAND_REJECTED';
+      readonly sessionId: SessionId;
+      readonly role: AuthenticatedSocketConnection['role'];
+      readonly commandType?: string;
+      readonly code?: CommandRejectionCode;
+    };
+
+/** Contains only operational metadata; credentials and player-provided text are excluded by type. */
+export interface RealtimeAuditLogger {
+  info(event: RealtimeAuditEvent): void;
+  warn(event: RealtimeAuditEvent): void;
+}
+
+const NOOP_AUDIT_LOGGER: RealtimeAuditLogger = {
+  info: () => undefined,
+  warn: () => undefined,
+};
+
+/** Use this logger in the executable server; tests may inject an in-memory logger instead. */
+export const consoleRealtimeAuditLogger: RealtimeAuditLogger = {
+  info: (event) => console.info(JSON.stringify({ component: 'realtime', ...event })),
+  warn: (event) => console.warn(JSON.stringify({ component: 'realtime', ...event })),
+};
+
 export interface AttachRealtimeGatewayOptions {
   readonly authenticator?: SocketAuthenticator;
   readonly sessionStateManager?: SessionStateManager;
+  readonly auditLogger?: RealtimeAuditLogger;
 }
 
 declare module 'fastify' {
@@ -114,6 +158,7 @@ export function attachRealtimeGateway(
   const authenticatedConnections = new WeakMap<Socket, AuthenticatedSocketConnection>();
   const authenticator = options.authenticator;
   const sessionStateManager = options.sessionStateManager;
+  const auditLogger = options.auditLogger ?? NOOP_AUDIT_LOGGER;
   const gateway: RealtimeGateway = {
     io,
     connections,
@@ -129,6 +174,10 @@ export function attachRealtimeGateway(
         authenticatedConnections.set(socket, connection);
         next();
       } catch (error) {
+        auditLogger.warn({
+          event: 'SOCKET_AUTHENTICATION_REJECTED',
+          code: error instanceof SocketAuthenticationError ? error.code : 'INTERNAL_ERROR',
+        });
         next(toSocketAuthenticationError(error));
       }
     });
@@ -138,6 +187,11 @@ export function attachRealtimeGateway(
     let connection = authenticatedConnections.get(socket);
     if (connection !== undefined) {
       gateway.assignSocketToSession(socket, connection);
+      auditLogger.info({
+        event: 'SOCKET_CONNECTED',
+        sessionId: connection.sessionId,
+        role: connection.role,
+      });
     }
 
     if (
@@ -159,6 +213,8 @@ export function attachRealtimeGateway(
               payload: { player: result.player },
             }) satisfies PlayerReconnectedEvent,
           );
+          auditLogger.info({ event: 'PLAYER_RECONNECTED', sessionId: connection.sessionId });
+          emitSessionSnapshot(socket, connection, sessionStateManager);
         }
       } catch (error) {
         if (!(error instanceof SessionStateError)) {
@@ -167,10 +223,54 @@ export function attachRealtimeGateway(
       }
     }
 
-    if (connection?.role === 'PLAYER' && sessionStateManager !== undefined) {
+    if (connection !== undefined) {
       let playerConnection = connection;
       socket.on(SOCKET_COMMAND_EVENT, (command: unknown) => {
-        if (!isPlayerJoinCommand(command) || playerConnection.playerId !== undefined) {
+        const rejectCommand = (
+          commandMetadata: CommandMetadata | undefined,
+          code: CommandRejectionCode,
+        ): void => {
+          emitCommandRejected(
+            socket,
+            commandMetadata?.requestId,
+            commandMetadata?.commandType,
+            code,
+          );
+          auditLogger.warn({
+            event: 'COMMAND_REJECTED',
+            sessionId: playerConnection.sessionId,
+            role: playerConnection.role,
+            ...(commandMetadata === undefined ? {} : { commandType: commandMetadata.commandType }),
+            code,
+          });
+        };
+        const commandMetadata = getCommandMetadata(command);
+        if (commandMetadata === undefined) {
+          rejectCommand(undefined, 'INVALID_COMMAND');
+          return;
+        }
+
+        if (!isWritableRealtimeRole(playerConnection.role)) {
+          rejectCommand(commandMetadata, 'READ_ONLY_ROLE');
+          return;
+        }
+
+        if (
+          playerConnection.role !== 'PLAYER' ||
+          sessionStateManager === undefined ||
+          commandMetadata.commandType !== 'PLAYER_JOIN'
+        ) {
+          rejectCommand(commandMetadata, 'COMMAND_NOT_SUPPORTED');
+          return;
+        }
+
+        if (playerConnection.playerId !== undefined) {
+          rejectCommand(commandMetadata, 'PLAYER_ALREADY_JOINED');
+          return;
+        }
+
+        if (!isPlayerJoinCommand(command)) {
+          rejectCommand(commandMetadata, 'INVALID_COMMAND');
           return;
         }
 
@@ -203,12 +303,27 @@ export function attachRealtimeGateway(
             SOCKET_EVENT,
             playerJoined,
           );
+          emitCommandAccepted(socket, command.requestId, command.type);
+          emitSessionSnapshot(socket, playerConnection, sessionStateManager);
+          auditLogger.info({ event: 'PLAYER_JOINED', sessionId: playerConnection.sessionId });
+          auditLogger.info({
+            event: 'COMMAND_ACCEPTED',
+            sessionId: playerConnection.sessionId,
+            role: playerConnection.role,
+            commandType: command.type,
+          });
         } catch (error) {
-          if (!(error instanceof SessionStateError)) {
-            throw error;
-          }
+          rejectCommand(commandMetadata, toCommandRejectionCode(error));
         }
       });
+    }
+
+    if (
+      connection !== undefined &&
+      connection.role !== 'PLAYER' &&
+      sessionStateManager !== undefined
+    ) {
+      emitSessionSnapshot(socket, connection, sessionStateManager);
     }
 
     socket.on('disconnect', () => {
@@ -230,6 +345,13 @@ export function attachRealtimeGateway(
         }
       }
       connections.remove(socket.id);
+      if (connection !== undefined) {
+        auditLogger.info({
+          event: 'SOCKET_DISCONNECTED',
+          sessionId: connection.sessionId,
+          role: connection.role,
+        });
+      }
     });
   });
 
@@ -264,6 +386,98 @@ function isPlayerJoinCommand(command: unknown): command is PlayerJoinCommand {
     !Array.isArray(message.payload) &&
     typeof (message.payload as Record<string, unknown>).displayName === 'string'
   );
+}
+
+interface CommandMetadata {
+  readonly commandType: string;
+  readonly requestId?: string;
+}
+
+function getCommandMetadata(command: unknown): CommandMetadata | undefined {
+  if (typeof command !== 'object' || command === null || Array.isArray(command)) {
+    return undefined;
+  }
+
+  const message = command as Record<string, unknown>;
+  if (
+    message.protocolVersion !== PROTOCOL_VERSION ||
+    typeof message.type !== 'string' ||
+    !Object.hasOwn(message, 'payload') ||
+    (message.requestId !== undefined && typeof message.requestId !== 'string')
+  ) {
+    return undefined;
+  }
+
+  return {
+    commandType: message.type,
+    ...(typeof message.requestId === 'string' ? { requestId: message.requestId } : {}),
+  };
+}
+
+function emitCommandAccepted(
+  socket: Socket,
+  requestId: string | undefined,
+  commandType: string,
+): void {
+  socket.emit(
+    SOCKET_EVENT,
+    createProtocolMessage({
+      type: 'COMMAND_ACCEPTED',
+      ...(requestId === undefined ? {} : { requestId }),
+      payload: { commandType },
+    }) satisfies CommandAcceptedEvent,
+  );
+}
+
+function emitSessionSnapshot(
+  socket: Socket,
+  connection: AuthenticatedSocketConnection,
+  sessionStateManager: SessionStateManager,
+): void {
+  const snapshot = sessionStateManager.getSnapshot(connection, connection.playerId);
+  if (snapshot === undefined) {
+    return;
+  }
+
+  socket.emit(
+    SOCKET_EVENT,
+    createProtocolMessage({
+      type: 'SESSION_SNAPSHOT',
+      payload: { snapshot },
+    }) satisfies SessionSnapshotEvent,
+  );
+}
+
+function emitCommandRejected(
+  socket: Socket,
+  requestId: string | undefined,
+  commandType: string | undefined,
+  code: CommandRejectionCode,
+): void {
+  socket.emit(
+    SOCKET_EVENT,
+    createProtocolMessage({
+      type: 'COMMAND_REJECTED',
+      ...(requestId === undefined ? {} : { requestId }),
+      payload: {
+        ...(commandType === undefined ? {} : { commandType }),
+        code,
+      },
+    }) satisfies CommandRejectedEvent,
+  );
+}
+
+function toCommandRejectionCode(error: unknown): CommandRejectionCode {
+  if (
+    error instanceof SessionStateError &&
+    (error.code === 'INVALID_PLAYER_NAME' ||
+      error.code === 'PLAYER_ALREADY_JOINED' ||
+      error.code === 'PLAYER_NAME_TAKEN')
+  ) {
+    return error.code;
+  }
+
+  return 'INTERNAL_ERROR';
 }
 
 function toSocketAuthenticationError(error: unknown): Error {

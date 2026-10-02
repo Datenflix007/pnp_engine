@@ -30,6 +30,7 @@ const session: Session = {
       id: 'player-anna',
       displayName: 'Anna',
       connectionState: 'CONNECTED',
+      admissionState: 'WAITING',
       characterId: 'character-anna',
       roleId: 'role-informant',
     },
@@ -37,6 +38,7 @@ const session: Session = {
       id: 'player-ben',
       displayName: 'Ben',
       connectionState: 'CONNECTED',
+      admissionState: 'RELEASED',
       characterId: 'character-ben',
       roleId: 'role-cultist',
     },
@@ -129,6 +131,7 @@ describe('session snapshots', () => {
     const snapshot = toPlayerSessionSnapshot(session, 'player-anna');
 
     expect(snapshot).toBeDefined();
+    expect(snapshot?.player.admissionState).toBe('WAITING');
     expect(snapshot?.role?.name).toBe('Informant');
     expect(snapshot?.messages.map((message) => message.id)).toEqual([
       'message-all',

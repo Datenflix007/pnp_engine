@@ -55,11 +55,26 @@ den vollständigen Sitzungszustand. Private Informationen werden nicht bloß im
 Frontend ausgeblendet, sondern serverseitig aus der jeweiligen Projektion
 entfernt. Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md#datenprojektionen-und-geheimhaltung).
 
-Browser speichern höchstens einen lokalen, zufälligen Reconnect-Nachweis. Dieser
-wird nicht in URLs, Serverlogs oder Git geschrieben. Bei Verlust des Geräts kann
-der Game Master den betreffenden Spielerzugang sperren oder neu zuweisen. Der
-Server speichert für einen solchen Nachweis ausschließlich einen SHA-256-Hash in
-der bereits ignorierten lokalen SQLite-Datei.
+Browser speichern lokale, zufällige Reconnect-Nachweise getrennt nach Sitzungs-ID.
+Sie werden ausschließlich nach einem erfolgreichen Join übernommen und weder in
+URLs, Serverlogs noch Git geschrieben. Bei Verlust des Geräts kann der Game
+Master den betreffenden Spielerzugang sperren oder neu zuweisen. Der Server
+speichert für einen solchen Nachweis ausschließlich einen SHA-256-Hash in der
+bereits ignorierten lokalen SQLite-Datei.
+
+## Betriebsprotokoll
+
+Der ausführbare Server schreibt nur strukturierte Echtzeit-Audit-Ereignisse auf
+die Konsole: Verbindungsaufbau und -ende, erfolgreicher Beitritt oder Reconnect,
+angenommene beziehungsweise abgewiesene Kommandos und abgewiesene Handshakes.
+Ein Eintrag enthält ausschließlich Ereignistyp sowie – sofern die Verbindung
+bereits autorisiert ist – Sitzungs-ID, Rolle, Kommandotyp und Fehlercode.
+
+Nicht protokolliert werden Join-Codes, Game-Master-Geheimnisse, Geräte-Tokens,
+Request-IDs, Spielernamen oder sonstige Kommando-Payloads. Tests sichern diese
+Negativgrenze ausdrücklich ab. Die Standardausgabe bleibt lokal; wenn sie
+umgeleitet oder gespeichert wird, ist sie als Laufzeitdatum zu behandeln und
+nicht zu committen.
 
 ## Prüfschritt
 

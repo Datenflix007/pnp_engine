@@ -1,4 +1,6 @@
 /** The first stable revision of the Socket.IO message envelope. */
+import type { SessionSnapshot } from '@pnp-engine/shared';
+
 export const PROTOCOL_VERSION = 1 as const;
 
 export type ProtocolVersion = typeof PROTOCOL_VERSION;
@@ -60,6 +62,7 @@ export interface PlayerJoinedPayload {
     readonly id: string;
     readonly displayName: string;
     readonly connectionState: 'OFFLINE' | 'CONNECTED' | 'REMOVED';
+    readonly admissionState: 'WAITING' | 'RELEASED';
   };
 }
 
@@ -86,6 +89,11 @@ export interface CommandRejectedPayload {
   readonly code: CommandRejectionCode;
 }
 
+/** A role-filtered, authoritative state projection sent after every connection. */
+export interface SessionSnapshotPayload {
+  readonly snapshot: SessionSnapshot;
+}
+
 export type PlayerJoinCommand = ProtocolMessage<'PLAYER_JOIN', PlayerJoinPayload>;
 export type PlayerJoinedEvent = ProtocolMessage<'PLAYER_JOINED', PlayerJoinedPayload>;
 export type PlayerJoinAcceptedEvent = ProtocolMessage<
@@ -95,3 +103,4 @@ export type PlayerJoinAcceptedEvent = ProtocolMessage<
 export type PlayerReconnectedEvent = ProtocolMessage<'PLAYER_RECONNECTED', PlayerJoinedPayload>;
 export type CommandAcceptedEvent = ProtocolMessage<'COMMAND_ACCEPTED', CommandAcceptedPayload>;
 export type CommandRejectedEvent = ProtocolMessage<'COMMAND_REJECTED', CommandRejectedPayload>;
+export type SessionSnapshotEvent = ProtocolMessage<'SESSION_SNAPSHOT', SessionSnapshotPayload>;

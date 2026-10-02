@@ -1,6 +1,12 @@
 import type Database from 'better-sqlite3';
 
-import type { LobbyState, PlayerConnectionState, PlayerId, SessionId } from '@pnp-engine/shared';
+import type {
+  LobbyState,
+  PlayerAdmissionState,
+  PlayerConnectionState,
+  PlayerId,
+  SessionId,
+} from '@pnp-engine/shared';
 
 export interface StoredSession {
   readonly id: SessionId;
@@ -22,6 +28,7 @@ export interface StoredPlayer {
   readonly sessionId: SessionId;
   readonly displayName: string;
   readonly connectionState: PlayerConnectionState;
+  readonly admissionState: PlayerAdmissionState;
   readonly characterId?: string;
   readonly roleId?: string;
   readonly createdAt: string;
@@ -41,6 +48,7 @@ export interface CreatePlayerInput {
   readonly sessionId: SessionId;
   readonly displayName: string;
   readonly connectionState: PlayerConnectionState;
+  readonly admissionState?: PlayerAdmissionState;
   readonly createdAt: string;
   readonly deviceTokenHash?: string;
 }
@@ -65,6 +73,7 @@ interface PlayerRow {
   readonly session_id: string;
   readonly display_name: string;
   readonly connection_state: string;
+  readonly admission_state: string;
   readonly character_id: string | null;
   readonly role_id: string | null;
   readonly created_at: string;
@@ -160,8 +169,8 @@ export class SqliteSessionRepository {
         .prepare(
           `
             INSERT INTO players (
-              id, session_id, display_name, connection_state, created_at, updated_at, device_token_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+              id, session_id, display_name, connection_state, admission_state, created_at, updated_at, device_token_hash
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `,
         )
         .run(
@@ -169,6 +178,7 @@ export class SqliteSessionRepository {
           input.sessionId,
           input.displayName,
           input.connectionState,
+          input.admissionState ?? 'WAITING',
           input.createdAt,
           input.createdAt,
           input.deviceTokenHash ?? null,
@@ -185,6 +195,7 @@ export class SqliteSessionRepository {
       sessionId: input.sessionId,
       displayName: input.displayName,
       connectionState: input.connectionState,
+      admissionState: input.admissionState ?? 'WAITING',
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
     };
@@ -194,7 +205,7 @@ export class SqliteSessionRepository {
     const rows = this.database
       .prepare(
         `
-          SELECT id, session_id, display_name, connection_state, character_id, role_id, created_at, updated_at
+          SELECT id, session_id, display_name, connection_state, admission_state, character_id, role_id, created_at, updated_at
           FROM players
           WHERE session_id = ?
           ORDER BY created_at ASC, id ASC
@@ -209,7 +220,7 @@ export class SqliteSessionRepository {
     const row = this.database
       .prepare(
         `
-          SELECT id, session_id, display_name, connection_state, character_id, role_id, created_at, updated_at
+          SELECT id, session_id, display_name, connection_state, admission_state, character_id, role_id, created_at, updated_at
           FROM players
           WHERE device_token_hash = ?
         `,
@@ -245,7 +256,7 @@ export class SqliteSessionRepository {
       return this.database
         .prepare(
           `
-            SELECT id, session_id, display_name, connection_state, character_id, role_id, created_at, updated_at
+            SELECT id, session_id, display_name, connection_state, admission_state, character_id, role_id, created_at, updated_at
             FROM players
             WHERE id = ? AND session_id = ?
           `,
@@ -283,6 +294,7 @@ function toStoredPlayer(row: PlayerRow): StoredPlayer {
     sessionId: row.session_id,
     displayName: row.display_name,
     connectionState: row.connection_state as PlayerConnectionState,
+    admissionState: row.admission_state as PlayerAdmissionState,
     ...(row.character_id === null ? {} : { characterId: row.character_id }),
     ...(row.role_id === null ? {} : { roleId: row.role_id }),
     createdAt: row.created_at,

@@ -1,3 +1,4 @@
+import { once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -31,7 +32,7 @@ function createTemporaryConfig(): ServerConfig {
 }
 
 describe('PLAYER_JOIN command', () => {
-  it('persists a player and publishes their identity only to themselves and the Game Master', async () => {
+  it('authorizes join broadcasts and reconnects only the owning player', async () => {
     const config = createTemporaryConfig();
     const databaseHandle = initializeDatabase(config);
     const repository = new SqliteSessionRepository(databaseHandle.database);
@@ -98,6 +99,7 @@ describe('PLAYER_JOIN command', () => {
             id: 'player-anna',
             displayName: 'Anna Beispiel',
             connectionState: 'CONNECTED',
+            admissionState: 'WAITING',
           },
           deviceToken: 'a'.repeat(43),
         },
@@ -118,12 +120,30 @@ describe('PLAYER_JOIN command', () => {
         playerId: 'player-anna',
       });
 
+      const serverSocket = server.realtimeGateway.io.sockets.sockets.get(getSocketId(player));
+      if (serverSocket === undefined) {
+        throw new Error('Expected the player socket to be registered on the server.');
+      }
+      const playerDisconnected = once(serverSocket, 'disconnect');
       player.disconnect();
+      await playerDisconnected;
+      expect(repository.listPlayers('ravenhill')).toMatchObject([
+        { id: 'player-anna', connectionState: 'OFFLINE' },
+      ]);
+
       const reconnectingPlayer = createClient(url, {
         role: 'PLAYER',
         deviceToken: 'a'.repeat(43),
       });
       const reconnectedEvent = waitForPlayerReconnected(reconnectingPlayer);
+      let gameMasterReceivedReconnect = false;
+      let presentationReceivedReconnect = false;
+      gameMaster.on(SOCKET_EVENT, (event: { readonly type?: string }) => {
+        gameMasterReceivedReconnect ||= event.type === 'PLAYER_RECONNECTED';
+      });
+      presentation.on(SOCKET_EVENT, (event: { readonly type?: string }) => {
+        presentationReceivedReconnect ||= event.type === 'PLAYER_RECONNECTED';
+      });
       try {
         await connect(reconnectingPlayer);
         expect(await reconnectedEvent).toEqual({
@@ -134,6 +154,7 @@ describe('PLAYER_JOIN command', () => {
               id: 'player-anna',
               displayName: 'Anna Beispiel',
               connectionState: 'CONNECTED',
+              admissionState: 'WAITING',
             },
           },
         });
@@ -144,6 +165,8 @@ describe('PLAYER_JOIN command', () => {
           role: 'PLAYER',
           playerId: 'player-anna',
         });
+        expect(gameMasterReceivedReconnect).toBe(false);
+        expect(presentationReceivedReconnect).toBe(false);
       } finally {
         reconnectingPlayer.disconnect();
       }

@@ -282,6 +282,7 @@ function toPlayer(player: StoredPlayer): Player {
     id: player.id,
     displayName: player.displayName,
     connectionState: player.connectionState,
+    admissionState: player.admissionState,
     ...(player.characterId === undefined ? {} : { characterId: player.characterId }),
     ...(player.roleId === undefined ? {} : { roleId: player.roleId }),
   };

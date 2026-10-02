@@ -16,5 +16,8 @@
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test": "pnpm run build && vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@pnp-engine/shared": "workspace:*"
   }
 }

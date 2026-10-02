@@ -82,6 +82,15 @@ const migrations: readonly Migration[] = [
       `);
     },
   },
+  {
+    id: '004_player_admission_state',
+    apply: (database) => {
+      database.exec(`
+        ALTER TABLE players ADD COLUMN admission_state TEXT NOT NULL DEFAULT 'WAITING'
+          CHECK (admission_state IN ('WAITING', 'RELEASED'));
+      `);
+    },
+  },
 ];
 
 /** Creates the local data directory, opens SQLite and applies pending migrations. */

@@ -20,10 +20,14 @@ export type LobbyState = 'CLOSED' | 'OPEN';
 
 export type PlayerConnectionState = 'OFFLINE' | 'CONNECTED' | 'REMOVED';
 
+/** Admission is controlled by the Game Master and visible only to the player concerned. */
+export type PlayerAdmissionState = 'WAITING' | 'RELEASED';
+
 export interface Player {
   readonly id: PlayerId;
   readonly displayName: string;
   readonly connectionState: PlayerConnectionState;
+  readonly admissionState: PlayerAdmissionState;
   readonly characterId?: CharacterId;
   readonly roleId?: RoleId;
 }

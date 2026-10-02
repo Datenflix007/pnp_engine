@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { createProtocolMessage, PROTOCOL_VERSION } from '@pnp-engine/protocol';
+import {
+  createProtocolMessage,
+  PROTOCOL_VERSION,
+  type SessionSnapshotEvent,
+} from '@pnp-engine/protocol';
 
 describe('@pnp-engine/protocol', () => {
   it('creates a versioned message with a request correlation id', () => {
@@ -25,5 +29,27 @@ describe('@pnp-engine/protocol', () => {
     });
 
     expect(message).not.toHaveProperty('requestId');
+  });
+
+  it('exports the role-filtered session snapshot event contract', () => {
+    const event = createProtocolMessage({
+      type: 'SESSION_SNAPSHOT',
+      payload: {
+        snapshot: {
+          audience: 'PLAYER',
+          session: { id: 'ravenhill', name: 'Das Geheimnis von Ravenhill', lobbyState: 'OPEN' },
+          player: { id: 'player-anna', displayName: 'Anna', connectionState: 'CONNECTED' },
+          tokens: [],
+          messages: [],
+          presentation: { mode: 'LOBBY' },
+        },
+      },
+    }) satisfies SessionSnapshotEvent;
+
+    expect(event).toMatchObject({
+      protocolVersion: PROTOCOL_VERSION,
+      type: 'SESSION_SNAPSHOT',
+      payload: { snapshot: { audience: 'PLAYER', session: { id: 'ravenhill' } } },
+    });
   });
 });

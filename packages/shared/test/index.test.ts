@@ -13,6 +13,7 @@ const ravenhillSession = {
       id: 'player-anna',
       displayName: 'Anna',
       connectionState: 'CONNECTED',
+      admissionState: 'WAITING',
       characterId: 'character-detective',
       roleId: 'role-informant',
     },

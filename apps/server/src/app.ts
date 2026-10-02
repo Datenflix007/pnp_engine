@@ -12,7 +12,7 @@ import {
   type SessionMetadataResponse,
 } from './http.js';
 import type { SqliteSessionRepository, StoredSession } from './session-repository.js';
-import { attachRealtimeGateway } from './realtime.js';
+import { attachRealtimeGateway, type RealtimeAuditLogger } from './realtime.js';
 import type { SessionStateManager } from './session-state-manager.js';
 import { createSocketAuthenticator } from './socket-authentication.js';
 
@@ -30,6 +30,7 @@ export interface CreateServerOptions {
   >;
   readonly gameMasterSecret?: string;
   readonly sessionStateManager?: SessionStateManager;
+  readonly auditLogger?: RealtimeAuditLogger;
 }
 
 interface SessionIdParams {
@@ -59,6 +60,7 @@ export function createServer(options: CreateServerOptions = {}) {
     ...(options.sessionStateManager === undefined
       ? {}
       : { sessionStateManager: options.sessionStateManager }),
+    ...(options.auditLogger === undefined ? {} : { auditLogger: options.auditLogger }),
   });
   if (options.sessionStateManager !== undefined) {
     server.decorate('sessionStateManager', options.sessionStateManager);
